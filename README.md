@@ -11,7 +11,6 @@
 [![AGPL-3.0 license](https://img.shields.io/badge/license-AGPL--3.0-a42e2b?style=flat-square)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/ZeusAFK/LibreKO?style=flat-square&color=f4c430)](https://github.com/ZeusAFK/LibreKO/stargazers)
 [![Discord](https://img.shields.io/discord/1542258360903139388?style=flat-square&logo=discord&logoColor=white&label=Discord&color=5865f2)](https://discord.gg/wyQ335WfPx)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-support-ffdd00?style=flat-square&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/zeusafk)
 
 </div>
 
@@ -110,7 +109,6 @@ Quests live in `Server/LibreKO.Game/Quests` as `.quest` files, a small language 
 
 LibreKO is free and always will be. If you want to help its development:
 
-- Buy Me a Coffee: https://buymeacoffee.com/zeusafk
 - Crypto (USDT, USDC or the network's own coin):
   - **Ethereum, BNB Smart Chain or Polygon:** `0xD8b7c496d0DdA069d6e7F5d72afBEb76C8e3D697`
   - **Solana:** `57JWyWxcY9BuK9jinj7Hf4b2ieyVQDL7j1aXg39GF8FS`
