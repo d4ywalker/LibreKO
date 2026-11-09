@@ -105,7 +105,12 @@ public abstract class GameTestBase
         services.AddSingleton<IHostEnvironment>(TestHostEnvironmentFactory.Create());
         services.AddScoped<IPreGameService, PreGameService>();
         services.AddSingleton<LoginThrottle>();
-        services.AddSingleton<IMaintenanceService, MaintenanceService>();
+        services.AddSingleton<IMaintenanceService>(sp =>
+        {
+            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaintenanceService>>();
+            var tempFile = Path.Combine(Path.GetTempPath(), $"maintenance_test_{Guid.NewGuid():N}.json");
+            return new MaintenanceService(logger, tempFile);
+        });
         services.AddScoped<IGameSessionInitializer, GameSessionInitializer>();
         services.AddSingleton<SessionManager>();
         services.AddSingleton<CharacterPacketMapper>();

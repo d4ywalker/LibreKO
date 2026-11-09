@@ -206,16 +206,27 @@ public class MaintenanceService : IMaintenanceService
 
         _logger.LogInformation("Starting maintenance countdown for {Seconds}s. Reason: '{Reason}'", countdownSeconds, reason);
 
+        // Broadcast the initial notice immediately so listeners are notified without delay
+        string initialTimeDesc = countdownSeconds >= 60
+            ? $"{countdownSeconds / 60} minute(s)"
+            : $"{countdownSeconds} second(s)";
+
+        string initialNotice = string.IsNullOrWhiteSpace(reason)
+            ? $"### [MAINTENANCE] Server maintenance starts in {initialTimeDesc}! Please find a safe spot and log out. ###"
+            : $"### [MAINTENANCE] Server maintenance starts in {initialTimeDesc}! ({reason}) Please log out safely. ###";
+
+        await broadcastNotice(initialNotice);
+
         _ = Task.Run(async () =>
         {
             try
             {
-                int remaining = countdownSeconds;
+                int remaining = countdownSeconds - 1;
                 while (remaining > 0)
                 {
                     RemainingCountdownSeconds = remaining;
 
-                    if (remaining == countdownSeconds || remaining % 60 == 0 || remaining == 30 || remaining == 10 || remaining <= 5)
+                    if (remaining % 60 == 0 || remaining == 30 || remaining == 10 || remaining <= 5)
                     {
                         string timeDesc = remaining >= 60
                             ? $"{remaining / 60} minute(s)"
@@ -249,7 +260,5 @@ public class MaintenanceService : IMaintenanceService
                 _logger.LogError(ex, "Error occurred during maintenance countdown.");
             }
         }, token);
-
-        await Task.CompletedTask;
     }
 }
