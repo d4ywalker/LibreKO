@@ -64,6 +64,7 @@ public partial class Login : Control
         Game.LoginServer.ErrorEvent += OnError;
         Game.Session.PreGame.LoginResultEvent += OnGameLogin;
         Game.Session.PreGame.LoginThrottledEvent += OnGameLoginThrottled;
+        Game.Session.PreGame.LoginMaintenanceEvent += OnGameLoginMaintenance;
         Game.Session.AccountLock.AccountInUseEvent += OnGameAccountInUse;
         Game.Session.AccountLock.KickResultEvent += OnKickResult;
         Game.Connection.ErrorEvent += OnError;
@@ -508,6 +509,12 @@ public partial class Login : Control
         Notice.Show(this, LoginResults.Describe((int)LoginResult.TooManyAttempts));
     }
 
+    private void OnGameLoginMaintenance(string message)
+    {
+        CloseBusy();
+        Notice.Show(this, message);
+    }
+
     private void OnGameLogin(bool ok, int nation)
     {
         CloseBusy();
@@ -704,6 +711,7 @@ public partial class Login : Control
         Game.LoginServer.ErrorEvent -= OnError;
         Game.Session.PreGame.LoginResultEvent -= OnGameLogin;
         Game.Session.PreGame.LoginThrottledEvent -= OnGameLoginThrottled;
+        Game.Session.PreGame.LoginMaintenanceEvent -= OnGameLoginMaintenance;
         Game.Session.AccountLock.AccountInUseEvent -= OnGameAccountInUse;
         Game.Session.AccountLock.KickResultEvent -= OnKickResult;
         Game.Connection.ErrorEvent -= OnError;

@@ -313,6 +313,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IQuestDefinitionSource>(p => p.GetRequiredService<QuestScriptEngine>());
         services.AddSingleton<IQuestDialogRunner, QuestDialogRunner>();
         services.AddSingleton<IGameServerBootstrapper, GameServerBootstrapper>();
+        services.AddSingleton<MaintenanceService>();
+        services.AddSingleton<IMaintenanceService>(p => p.GetRequiredService<MaintenanceService>());
 
         return services;
     }

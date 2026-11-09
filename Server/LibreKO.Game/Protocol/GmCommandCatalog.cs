@@ -74,6 +74,8 @@ public static class GmCommandCatalog
         new(Server, "+clearmerchantbots", "Clear all active merchant bots"),
         new(Server, "+dailyrank", "Recompute the daily rankings now; today's changes stay against yesterday"),
         new(Server, "+reseed", "Seed the JSON data into the database and reload (drops, NPCs, items)"),
+        new(Server, "+maintenance on [sec|min] [reason] | off | cancel | status", "Toggle maintenance mode: blocks non-GM logins and disconnects active players"),
+        new(Server, "+kickall [reason]", "Disconnect all non-GM players from the server"),
         new(Server, "+?", "Open this list"),
     ];
 }

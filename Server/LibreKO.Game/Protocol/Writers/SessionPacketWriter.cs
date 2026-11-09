@@ -41,6 +41,13 @@ public sealed class SessionPacketWriter
 
     public static Packet LoginDeniedTooManyAttempts() => LoginDenied(GameLoginDenial.TooManyAttempts);
 
+    public static Packet LoginDeniedMaintenance(string reason = "")
+    {
+        var packet = LoginDenied(GameLoginDenial.Maintenance);
+        packet.WriteString(reason ?? string.Empty);
+        return packet;
+    }
+
     public static Packet LoginDeniedAccountInUse(AccountOccupant occupant)
     {
         var packet = LoginDenied(GameLoginDenial.AccountInUse);

@@ -158,6 +158,37 @@ public class PreGameReaderTests
         Assert.Equal((1, 1), (throttled, failed));
     }
 
+    [Fact]
+    public void AMaintenanceGameLoginRaisesTheMaintenanceEventWithMessage()
+    {
+        var session = new GameSession();
+        var sink = new RecordingSink();
+        var host = new Host();
+        var login = new LoginState();
+        var requests = new GameRequests(sink, session, login);
+        var disp = new PacketDispatcher();
+        new PreGameReader(session, requests.PreGame, login, new ReconnectSupervisor(host), host).Register(disp);
+
+        string? received = null;
+        session.PreGame.LoginMaintenanceEvent += msg => received = msg;
+
+        disp.Dispatch(DeniedMaintenance("Emergency maintenance in progress"));
+
+        Assert.Equal("Emergency maintenance in progress", received);
+    }
+
+    private static Packet DeniedMaintenance(string message)
+    {
+        var p = new Packet(GameOpcodes.GS_LOGIN);
+        p.WriteByte(LoginRejected);
+        p.WriteUInt(LibreKOProtocol.AccountLockMagic);
+        p.WriteByte(LibreKOProtocol.ExtensionVersion);
+        p.WriteByte((byte)GameLoginDenial.Maintenance);
+        p.WriteString(message);
+        p.ResetOffset();
+        return p;
+    }
+
     private static Packet Denied(GameLoginDenial? denial)
     {
         var p = new Packet(GameOpcodes.GS_LOGIN);

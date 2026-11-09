@@ -57,6 +57,7 @@ public class AdminPacketCoordinator(
     IClanMatchService clanMatchService,
     IBowlEventService bowlEventService,
     ILogger<AdminPacketCoordinator> logger,
+    IMaintenanceService? maintenanceService = null,
     TimeProvider? timeProvider = null) : IAdminPacketCoordinator
 {
     private const int MaxGmSummonCount = 50;
@@ -610,6 +611,15 @@ public class AdminPacketCoordinator(
 
             case "unmute":
                 await HandleMuteAsync(session, arg, false);
+                break;
+
+            case "maintenance":
+            case "maint":
+                await HandleMaintenanceAsync(session, arg);
+                break;
+
+            case "kickall":
+                await HandleKickAllAsync(session, arg);
                 break;
 
             case "kick":
@@ -1621,6 +1631,151 @@ public class AdminPacketCoordinator(
         await zoneTransitionService.ChangeZoneAsync(target, PrisonZoneId, PrisonStartX, PrisonStartZ);
         await SendNoticeAsync(session, $"{target.Name} sent to prison.");
         logger.LogInformation("GM {Gm} sent {Target} to prison", session.Name, target.Name);
+    }
+
+    private async Task HandleMaintenanceAsync(UserSession session, string arg)
+    {
+        if (maintenanceService == null)
+        {
+            await SendNoticeAsync(session, "[Maintenance] Service is not available.");
+            return;
+        }
+
+        var parts = arg.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var subcmd = parts.Length > 0 ? parts[0].ToLowerInvariant() : string.Empty;
+        var subarg = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+
+        if (subcmd is "off" or "stop" or "disable")
+        {
+            maintenanceService.SetMaintenance(false);
+            await BroadcastNoticeAsync("### [MAINTENANCE] Maintenance mode is now DISABLED. Server is open to all players! ###");
+            await SendNoticeAsync(session, "[Maintenance] Maintenance mode has been turned OFF.");
+            return;
+        }
+
+        if (subcmd is "cancel" or "abort")
+        {
+            if (maintenanceService.IsCountdownRunning)
+            {
+                maintenanceService.CancelCountdown();
+                await BroadcastNoticeAsync("### [MAINTENANCE] Scheduled maintenance countdown has been CANCELLED. ###");
+                await SendNoticeAsync(session, "[Maintenance] Countdown cancelled.");
+            }
+            else
+            {
+                await SendNoticeAsync(session, "[Maintenance] No countdown is currently running.");
+            }
+            return;
+        }
+
+        if (subcmd is "status" or "info" || string.IsNullOrEmpty(subcmd))
+        {
+            var statusStr = maintenanceService.IsMaintenanceActive ? "ACTIVE (Non-GM logins blocked)" : "INACTIVE (Server is open)";
+            await SendNoticeAsync(session, $"[Maintenance] Status: {statusStr}");
+            if (maintenanceService.IsMaintenanceActive)
+            {
+                if (!string.IsNullOrEmpty(maintenanceService.MaintenanceReason))
+                    await SendNoticeAsync(session, $"[Maintenance] Reason: {maintenanceService.MaintenanceReason}");
+                if (maintenanceService.MaintenanceStartedAt.HasValue)
+                    await SendNoticeAsync(session, $"[Maintenance] Started: {maintenanceService.MaintenanceStartedAt.Value:HH:mm:ss} UTC");
+            }
+            if (maintenanceService.IsCountdownRunning)
+            {
+                await SendNoticeAsync(session, $"[Maintenance] Countdown in progress: {maintenanceService.RemainingCountdownSeconds} seconds remaining.");
+            }
+            await SendNoticeAsync(session, "Usage: +maintenance on [seconds|minutes] [reason] | +maintenance off | +maintenance cancel | +maintenance status");
+            return;
+        }
+
+        if (subcmd is "on" or "start" or "enable")
+        {
+            int countdownSec = 0;
+            string reason = string.Empty;
+
+            if (!string.IsNullOrEmpty(subarg))
+            {
+                var argTokens = subarg.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                var firstTok = argTokens[0].ToLowerInvariant();
+                if (firstTok.EndsWith("m") && int.TryParse(firstTok[..^1], out var min) && min > 0)
+                {
+                    countdownSec = min * 60;
+                    reason = argTokens.Length > 1 ? argTokens[1].Trim() : string.Empty;
+                }
+                else if (firstTok.EndsWith("s") && int.TryParse(firstTok[..^1], out var sec) && sec > 0)
+                {
+                    countdownSec = sec;
+                    reason = argTokens.Length > 1 ? argTokens[1].Trim() : string.Empty;
+                }
+                else if (int.TryParse(firstTok, out var rawSec) && rawSec > 0)
+                {
+                    countdownSec = rawSec;
+                    reason = argTokens.Length > 1 ? argTokens[1].Trim() : string.Empty;
+                }
+                else
+                {
+                    reason = subarg;
+                }
+            }
+
+            if (countdownSec > 0)
+            {
+                await SendNoticeAsync(session, $"[Maintenance] Starting {countdownSec}s countdown to maintenance mode...");
+                await maintenanceService.StartCountdownAsync(
+                    countdownSec,
+                    reason,
+                    null,
+                    async msg => await BroadcastNoticeAsync(msg),
+                    async () =>
+                    {
+                        await ExecuteEnableMaintenanceAsync(reason);
+                    });
+            }
+            else
+            {
+                await ExecuteEnableMaintenanceAsync(reason);
+                await SendNoticeAsync(session, "[Maintenance] Maintenance mode enabled immediately.");
+            }
+            return;
+        }
+
+        await SendNoticeAsync(session, "Usage: +maintenance on [time] [reason] | +maintenance off | +maintenance cancel | +maintenance status");
+    }
+
+    private async Task ExecuteEnableMaintenanceAsync(string reason)
+    {
+        maintenanceService!.SetMaintenance(true, reason);
+        var kickMsg = string.IsNullOrWhiteSpace(reason)
+            ? "### [MAINTENANCE] Maintenance mode is now ACTIVE. Disconnecting players... ###"
+            : $"### [MAINTENANCE] Maintenance mode is now ACTIVE ({reason}). Disconnecting players... ###";
+        await BroadcastNoticeAsync(kickMsg);
+
+        var regularPlayers = sessionManager.GetAll().Where(s => !s.IsGM && !s.IsBot).ToList();
+        foreach (var player in regularPlayers)
+        {
+            await RemoveFromServerAsync(player, AccountKickCode.Maintenance);
+        }
+
+        logger.LogWarning("Maintenance mode activated: {Count} regular players disconnected. Reason: '{Reason}'",
+            regularPlayers.Count, reason);
+    }
+
+    private async Task HandleKickAllAsync(UserSession session, string arg)
+    {
+        var reason = arg.Trim();
+        var noticeMsg = string.IsNullOrWhiteSpace(reason)
+            ? "### [ADMIN] All players are being disconnected by a Game Master. ###"
+            : $"### [ADMIN] All players are being disconnected. Reason: {reason} ###";
+
+        await BroadcastNoticeAsync(noticeMsg);
+
+        var targets = sessionManager.GetAll().Where(s => s != session && !s.IsGM && !s.IsBot).ToList();
+        foreach (var target in targets)
+        {
+            await RemoveFromServerAsync(target, AccountKickCode.RemovedByGameMaster);
+        }
+
+        await SendNoticeAsync(session, $"[KickAll] Disconnected {targets.Count} non-GM player(s).");
+        logger.LogInformation("GM {Gm} kicked all {Count} non-GM players. Reason: '{Reason}'", session.Name, targets.Count, reason);
     }
 
     private const int RemovalGraceMs = 500;

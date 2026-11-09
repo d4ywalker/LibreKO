@@ -33,6 +33,7 @@ public enum GameLoginDenial : byte
 {
     AccountInUse = 1,
     TooManyAttempts = 2,
+    Maintenance = 3,
 }
 
 public enum AccountKickCode : byte
@@ -43,6 +44,7 @@ public enum AccountKickCode : byte
     Rejected = 3,
     RemovedByGameMaster = 4,
     Banned = 5,
+    Maintenance = 6,
 }
 
 public enum LoginRequestFlags : byte

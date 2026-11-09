@@ -104,6 +104,17 @@ internal sealed class PreGameReader : IPacketReader
             return true;
         }
 
+        if (denial == GameLoginDenial.Maintenance)
+        {
+            var reason = p.RemainingBytes > 0 ? p.ReadString() : string.Empty;
+            var message = string.IsNullOrWhiteSpace(reason)
+                ? "Server is currently under maintenance. Please try again later."
+                : reason;
+            if (reconnect.InProgress) reconnect.GiveUp(message);
+            else session.PreGame.RaiseLoginMaintenance(message);
+            return true;
+        }
+
         if (denial != GameLoginDenial.AccountInUse || ReadAccountInUse(p) is not { } occupant)
             return false;
 
@@ -176,6 +187,7 @@ internal sealed class PreGameReader : IPacketReader
         AccountKickCode.Evicted => EvictedMessage,
         AccountKickCode.RemovedByGameMaster => "A Game Master removed you from the server.",
         AccountKickCode.Banned => "This account has been banned.",
+        AccountKickCode.Maintenance => "The server is currently undergoing maintenance. Please try again later.",
         _ => null,
     };
 

@@ -10,7 +10,7 @@ using LibreKO.Game.Protocol.Writers;
 
 namespace LibreKO.Game.Protocol;
 
-public record GameLoginResult(int AccountId, AccountNation Nation, bool Success, bool Throttled = false);
+public record GameLoginResult(int AccountId, AccountNation Nation, bool Success, bool Throttled = false, bool Maintenance = false, string MaintenanceMessage = "");
 public record CharacterSelectResult(Packet Packet, int CharacterId);
 
 public interface IPreGameService
@@ -43,6 +43,7 @@ public class PreGameService(
     ISlaveMerchantService slaveMerchants,
     AppDbContext unitOfWork,
     LoginThrottle throttle,
+    IMaintenanceService maintenanceService,
     ILogger<PreGameService> logger) : IPreGameService
 {
     private const byte NewCharacterStartZone = (byte)ZoneId.Moradon;
@@ -78,6 +79,15 @@ public class PreGameService(
         {
             logger.LogWarning("Login rejected for {Login}: account banned", login);
             return new(0, 0, false);
+        }
+
+        if (maintenanceService.IsMaintenanceActive && account.Authority != AccountAuthority.GameMaster)
+        {
+            var reason = string.IsNullOrWhiteSpace(maintenanceService.MaintenanceReason)
+                ? "Server is currently under maintenance. Only Game Masters may log in."
+                : $"Server is currently under maintenance ({maintenanceService.MaintenanceReason}).";
+            logger.LogInformation("Login rejected for non-GM {Login}: Server in maintenance mode", login);
+            return new(0, 0, false, Maintenance: true, MaintenanceMessage: reason);
         }
 
         logger.LogDebug("Login succeeded for {Login} (accountId={AccountId})", login, account.Id);
